@@ -117,6 +117,22 @@ pub enum Icon {
     Video,
     Close,
     Filter,
+    /// Barra tachada: desactivar tarea.
+    Inactive,
+    /// Flechas en círculo: tarea periódica.
+    Recurring,
+    /// Lupa sobre una barra: inspector de tareas.
+    Inspect,
+    /// Barra con palomita: marcar según programación.
+    OnTrack,
+    /// Calendario con flecha: actualizar proyecto.
+    UpdateProject,
+    /// Lupa sola: buscar dentro del proyecto (distinta de `Search`, la búsqueda global).
+    Find,
+    /// Encabezado con filas debajo: agrupar.
+    Group,
+    /// Líneas que se acortan y flecha: ordenar.
+    Sort,
     Lock,
     Menu,
     Warning,
@@ -230,6 +246,14 @@ impl Icon {
         ("video", Icon::Video),
         ("close", Icon::Close),
         ("filter", Icon::Filter),
+        ("inactive", Icon::Inactive),
+        ("recurring", Icon::Recurring),
+        ("inspect", Icon::Inspect),
+        ("on-track", Icon::OnTrack),
+        ("update-project", Icon::UpdateProject),
+        ("find", Icon::Find),
+        ("group", Icon::Group),
+        ("sort", Icon::Sort),
         ("lock", Icon::Lock),
         ("menu", Icon::Menu),
         ("warning", Icon::Warning),
@@ -1017,6 +1041,50 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, ink: Color32, accent: Color32)
             line(&[(18.0, 6.0), (6.0, 18.0)], s);
         }
         Icon::Filter => outline(&[(3.0, 4.5), (21.0, 4.5), (14.0, 12.5), (14.0, 19.5), (10.0, 21.0), (10.0, 12.5)], s),
+        Icon::Inactive => {
+            frame(3.0, 8.0, 18.0, 8.0);
+            line(&[(4.0, 20.0), (20.0, 4.0)], sa);
+        }
+        Icon::Recurring => {
+            line(&[(18.0, 7.0), (15.0, 4.5), (11.0, 4.0), (7.0, 5.5), (4.5, 9.0), (4.0, 13.0)], s);
+            arrow_head(18.0, 7.0, 0.7, 0.7, sa);
+            line(&[(6.0, 17.0), (9.0, 19.5), (13.0, 20.0), (17.0, 18.5), (19.5, 15.0), (20.0, 11.0)], s);
+            arrow_head(6.0, 17.0, -0.7, -0.7, sa);
+        }
+        Icon::Inspect => {
+            frame(2.0, 4.0, 12.0, 6.0);
+            circle(15.0, 14.0, 5.0, s);
+            line(&[(18.5, 17.5), (22.0, 21.0)], Stroke::new(2.4 * k, ink));
+        }
+        Icon::OnTrack => {
+            frame(3.0, 9.0, 13.0, 7.0);
+            line(&[(15.0, 15.0), (18.0, 19.0), (22.0, 11.0)], sa);
+        }
+        Icon::UpdateProject => {
+            frame(3.0, 5.0, 14.0, 14.0);
+            line(&[(3.0, 9.0), (17.0, 9.0)], s);
+            line(&[(6.0, 3.0), (6.0, 6.0)], s);
+            line(&[(14.0, 3.0), (14.0, 6.0)], s);
+            line(&[(13.0, 16.0), (21.0, 16.0)], sa);
+            arrow_head(21.0, 16.0, 1.0, 0.0, sa);
+        }
+        Icon::Find => {
+            circle(10.0, 10.0, 6.5, s);
+            line(&[(15.0, 15.0), (21.0, 21.0)], Stroke::new(2.4 * k, ink));
+        }
+        Icon::Group => {
+            frame(3.0, 4.0, 18.0, 5.0);
+            line(&[(5.0, 10.0), (5.0, 18.0)], s);
+            line(&[(9.0, 13.0), (21.0, 13.0)], sa);
+            line(&[(9.0, 18.0), (21.0, 18.0)], sa);
+        }
+        Icon::Sort => {
+            line(&[(3.0, 6.0), (13.0, 6.0)], s);
+            line(&[(3.0, 11.0), (10.0, 11.0)], s);
+            line(&[(3.0, 16.0), (7.0, 16.0)], s);
+            line(&[(18.0, 4.0), (18.0, 20.0)], sa);
+            arrow_head(18.0, 20.0, 0.0, 1.0, sa);
+        }
         Icon::Lock => {
             frame(5.0, 11.0, 14.0, 10.0);
             line(&[(8.0, 11.0), (8.0, 8.0)], s);
