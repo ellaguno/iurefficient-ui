@@ -49,7 +49,7 @@ Opciones: `--dark`, `--hc` (alto contraste), `--density comfortable|compact|dens
 
 ## Tipografía
 
-La interfaz usa **Inter 4.1** (Rasmus Andersson, OFL-1.1) en cuatro pesos —Regular 400, Medium
+La interfaz usa **Inter 4.1** (Rasmus Andersson, OFL-1.1), con la «I» mayúscula con remates, en cuatro pesos —Regular 400, Medium
 500, SemiBold 600 y Bold 700— más una fuente de cifras tabulares. Va dentro del binario
 (`include_bytes!`, característica `bundled-fonts`, +1.6 MB), así que la app se ve igual en Linux,
 macOS y Windows, tenga o no fuentes instaladas.
@@ -102,8 +102,11 @@ valida con `skrifa` antes de dárselo a egui (que entra en pánico con uno daña
 
 **Límites de egui 0.37.** El texto se forma con `harfrust` y se rasteriza con `skrifa`, pero
 `ShapeOptions` no expone funciones OpenType: no se pueden activar `tnum`, `cv11` (a de un piso),
-`ss01` (cifras abiertas) ni `cv08` (I con remates, que distinguiría «Iurefficient» de
-«lurefficient»). Por eso las cifras tabulares son una fuente aparte (`InterTabular-Regular.ttf`,
+`ss01` (cifras abiertas) ni `cv08` (I con remates). Por eso la «I» mayúscula con remates se
+hornea en los cuatro pesos ([`assets/fonts/inter-i-serif.py`](assets/fonts/inter-i-serif.py):
+solo la I latina y sus acentuadas, para que «Iurefficient» o «Ilse» no se lean «lurefficient» o
+«llse»; antes y después en [`i-mayuscula.png`](docs/typography/i-mayuscula.png), galería con
+`--type-sample`) y las cifras tabulares son una fuente aparte (`InterTabular-Regular.ttf`,
 ~10 KB: subconjunto de Inter con `tnum` congelado, generado por
 [`assets/fonts/inter-tabular.py`](assets/fonts/inter-tabular.py)). Las fuentes variables sí
 funcionan (`FontTweak::coords`), pero las métricas verticales no siguen al eje (HVAR/MVAR) y la

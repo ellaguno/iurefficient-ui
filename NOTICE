@@ -10,7 +10,7 @@ Portions (theme tokens, vector icons, preferences, accessibility helpers and
 the command palette) were extracted from IureProject, by the same licensor
 and under the same license.
 
-The bundled fonts in assets/fonts (Inter 4.1 and the derived Inter Tabular,
+The bundled fonts in assets/fonts (Inter Iure, a modified Inter 4.1 with a serifed capital I, and the derived Inter Tabular,
 Copyright (c) 2016 The Inter Project Authors) are NOT covered by the FSL: they
 are licensed under the SIL Open Font License, Version 1.1 (assets/fonts/OFL.txt).
 See ATTRIBUTION.md.

@@ -255,7 +255,8 @@ pub struct FontSet {
     pub hinting: Option<bool>,
 }
 
-/// Inter 4.1 (rsms, OFL-1.1), la fuente incluida: Regular, Medium, SemiBold, Bold y cifras
+/// Inter 4.1 (rsms, OFL-1.1), la fuente incluida, con la «I» mayúscula con remates (`cv08`
+/// congelado por `assets/fonts/inter-i-serif.py`): Regular, Medium, SemiBold, Bold y cifras
 /// tabulares (subconjunto de Inter Regular con `tnum` congelado por `assets/fonts/inter-tabular.py`).
 #[cfg(feature = "bundled-fonts")]
 mod bundled {
@@ -566,6 +567,14 @@ mod tests {
         // Inter trae cifras proporcionales: por eso existe la familia tabular.
         let reg = advances(&set.regular);
         assert!(reg.iter().any(|w| (w - reg[0]).abs() > 1.0));
+        // «I» mayúscula con remates (cv08 congelado) en los cuatro pesos: mucho más ancha que la
+        // «l» (sin remates miden casi lo mismo y «Ilse» se lee «llse»).
+        for b in [Some(&set.regular), set.medium.as_ref(), set.semibold.as_ref(), set.bold.as_ref()] {
+            let f = skrifa::FontRef::new(b.unwrap().as_slice()).unwrap();
+            let m = f.glyph_metrics(skrifa::instance::Size::new(1000.0), skrifa::instance::LocationRef::default());
+            let w = |c: char| m.advance_width(f.charmap().map(c).unwrap()).unwrap();
+            assert!(w('I') > w('l') * 1.5 && w('Í') > w('l') * 1.5, "I sin remates: {} vs l {}", w('I'), w('l'));
+        }
     }
 
     #[test]

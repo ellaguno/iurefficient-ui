@@ -4,7 +4,7 @@ Los iconos se dibujan en código (`src/icons.rs`); los únicos activos de tercer
 
 | Archivo | Autor | Licencia | Fuente |
 |---|---|---|---|
-| `assets/fonts/Inter-Regular.ttf`, `Inter-Medium.ttf`, `Inter-SemiBold.ttf`, `Inter-Bold.ttf` | The Inter Project Authors (Rasmus Andersson) | SIL Open Font License 1.1 ([`assets/fonts/OFL.txt`](assets/fonts/OFL.txt)) | Inter 4.1, `Inter-4.1.zip` → `extras/ttf/`, <https://github.com/rsms/inter/releases/tag/v4.1> (sin cambios) |
+| `assets/fonts/Inter-Regular.ttf`, `Inter-Medium.ttf`, `Inter-SemiBold.ttf`, `Inter-Bold.ttf` | The Inter Project Authors (Rasmus Andersson) | SIL Open Font License 1.1 ([`assets/fonts/OFL.txt`](assets/fonts/OFL.txt)) | Inter 4.1, `Inter-4.1.zip` → `extras/ttf/`, <https://github.com/rsms/inter/releases/tag/v4.1>. **Modificadas** con [`assets/fonts/inter-i-serif.py`](assets/fonts/inter-i-serif.py) (fontTools): `cv08` («I» mayúscula con remates) congelado en el cmap solo para la I latina y sus acentuadas (I Í Ì Î Ï Ĩ Ī Ĭ Į İ Ǐ Ȉ Ȋ Ỉ Ị Ḭ Ḯ Ɨ); familia renombrada «Inter Iure» y la modificación anotada en la versión (nameID 5) y la descripción (nameID 10). Inter no declara nombres reservados (OFL sin «Reserved Font Name»). |
 | `assets/fonts/InterTabular-Regular.ttf` | Derivada de Inter-Regular.ttf 4.1 (The Inter Project Authors) | SIL Open Font License 1.1 ([`assets/fonts/OFL.txt`](assets/fonts/OFL.txt)) | Generada con [`assets/fonts/inter-tabular.py`](assets/fonts/inter-tabular.py) (fontTools): `tnum` congelado en el cmap, subconjunto de cifras y puntuación, familia renombrada «Inter Tabular». Inter no tiene nombres reservados. |
 
 Las fuentes se incluyen en el binario solo con la característica `bundled-fonts` (activa por

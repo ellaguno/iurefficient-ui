@@ -3,7 +3,7 @@
 //!
 //! Captura sin pantalla (wgpu fuera de pantalla):
 //! `cargo run --example gallery -- /tmp/gallery.png [--dark] [--hc] [--density dense|compact|comfortable]
-//!  [--palette[=texto]] [--icons] [--lang en|es] [--font bundled|system|egui|CARPETA] [--no-hint]`
+//!  [--palette[=texto]] [--icons] [--type-sample] [--lang en|es] [--font bundled|system|egui|CARPETA] [--no-hint]`
 //!
 //! `--font CARPETA` carga una familia de una carpeta (`*-Regular`, `*-Medium`, `*-SemiBold`,
 //! `*-Bold`, `*Tabular-Regular`; ver `system::FontSet::from_dir`): así se compararon las fuentes
@@ -94,6 +94,8 @@ struct Gallery {
     toasts: Toasts,
     view: usize,
     icons_only: bool,
+    /// Muestra tipográfica (`--type-sample`): la «I» mayúscula en todos los pesos y densidades.
+    type_sample: bool,
     show_warning: bool,
 }
 
@@ -182,6 +184,7 @@ impl Gallery {
             toasts,
             view: 1,
             icons_only: false,
+            type_sample: false,
             show_warning: true,
         }
     }
@@ -213,6 +216,10 @@ impl Gallery {
         }
         theme::refresh(&ctx);
         self.palette.handle_shortcut(&ctx);
+        if self.type_sample {
+            split::center(ui, PaneKind::Detail, type_sample);
+            return;
+        }
         if self.icons_only {
             split::center(ui, PaneKind::Detail, icon_sheet);
             return;
@@ -479,6 +486,27 @@ impl Gallery {
     }
 }
 
+/// La «I» mayúscula (que en Inter sin remates se confunde con la «l») en los tamaños de Densa
+/// y Cómoda y en los cuatro pesos.
+fn type_sample(ui: &mut Ui) {
+    let c = theme::colors(ui);
+    let ctx = ui.ctx().clone();
+    const TEXT: &str = "Iurefficient · IureDesk · Ilse Ibarra · Íñigo";
+    for d in [Density::Dense, Density::Comfortable] {
+        let size = d.body_size();
+        ui.label(RichText::new(format!("{} ({size} pt)", d.label())).font(theme::small_font(&ctx)).color(c.text_muted));
+        for font in [
+            egui::FontId::proportional(size),
+            theme::medium_font(&ctx, size),
+            theme::semibold_font(&ctx, size),
+            theme::bold_font(&ctx, size),
+        ] {
+            ui.label(RichText::new(TEXT).font(font).color(c.text));
+        }
+        ui.add_space(6.0);
+    }
+}
+
 /// Todos los iconos con su nombre, en claro y con el acento.
 fn icon_sheet(ui: &mut Ui) {
     let c = theme::colors(ui);
@@ -538,6 +566,7 @@ fn main() -> Result<(), String> {
     };
     let mut g = Gallery::new(mode, density);
     g.icons_only = args.iter().any(|a| a == "--icons");
+    g.type_sample = args.iter().any(|a| a == "--type-sample");
     if let Some(f) = flag_value("--font") {
         g.font = f;
     }
@@ -557,7 +586,13 @@ fn main() -> Result<(), String> {
             .map_err(|e| e.to_string());
     };
 
-    let size = if g.icons_only { vec2(1300.0, 1080.0) } else { vec2(1440.0, 900.0) };
+    let size = if g.icons_only {
+        vec2(1300.0, 1080.0)
+    } else if g.type_sample {
+        vec2(560.0, 250.0)
+    } else {
+        vec2(1440.0, 900.0)
+    };
     // El arnés deja 8 px de margen alrededor; la galería ocupa la ventana completa, como en eframe.
     let ppp = flag_value("--ppp").and_then(|p| p.parse::<f32>().ok()).unwrap_or(1.0).clamp(0.5, 4.0);
     let mut harness = Harness::builder().with_size(size).with_pixels_per_point(ppp).build_ui_state(
