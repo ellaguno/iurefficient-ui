@@ -16,14 +16,17 @@ use egui::{Response, RichText, Ui};
 /// Botón principal (relleno con el acento). Uno por vista, como mucho.
 pub fn primary_button(ui: &mut Ui, label: &str) -> Response {
     let c = crate::theme::colors(ui);
+    let font = crate::theme::medium_font(ui.ctx(), crate::theme::density(ui.ctx()).body_size());
     ui.add(
-        egui::Button::new(RichText::new(label).color(c.on_accent).strong()).fill(c.accent).stroke(egui::Stroke::NONE),
+        egui::Button::new(RichText::new(label).font(font).color(c.on_accent).strong())
+            .fill(c.accent)
+            .stroke(egui::Stroke::NONE),
     )
 }
 
 /// Encabezado de sección pequeño en mayúsculas suaves («CARPETAS»).
 pub fn section_label(ui: &mut Ui, text: &str) -> Response {
     let c = crate::theme::colors(ui);
-    let size = crate::theme::density(ui.ctx()).small_size();
-    ui.label(RichText::new(text.to_uppercase()).size(size).color(c.text_muted).strong())
+    let font = crate::theme::semibold_font(ui.ctx(), crate::theme::density(ui.ctx()).small_size());
+    ui.label(RichText::new(text.to_uppercase()).font(font).color(c.text_muted).strong())
 }

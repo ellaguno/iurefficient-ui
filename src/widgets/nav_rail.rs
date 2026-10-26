@@ -145,13 +145,16 @@ pub fn sidebar_item(ui: &mut Ui, icon: Option<Icon>, label: &str, count: u32, se
     if count > 0 {
         let small = d.small_size();
         let text = count_text(count);
-        let font = crate::theme::bold_font(ui.ctx(), small);
+        let font = crate::theme::semibold_font(ui.ctx(), small);
         let g = ui.painter().layout_no_wrap(text, font, c.accent);
         ui.painter().galley(pos2(right - g.size().x, rect.center().y - g.size().y / 2.0), g.clone(), c.accent);
         right -= g.size().x + 8.0;
     }
-    let font =
-        if count > 0 { crate::theme::bold_font(ui.ctx(), d.body_size()) } else { crate::theme::body_font(ui.ctx()) };
+    let font = if count > 0 {
+        crate::theme::semibold_font(ui.ctx(), d.body_size())
+    } else {
+        crate::theme::body_font(ui.ctx())
+    };
     let g = crate::widgets::text::elided(ui, label, font, c.text, (right - x).max(0.0));
     ui.painter().galley(pos2(x, rect.center().y - g.size().y / 2.0), g, c.text);
     let a11y = if count > 0 { format!("{label} ({count})") } else { label.to_string() };

@@ -1,6 +1,6 @@
 //! Insignias: contadores (no leídos) y etiquetas cortas en forma de píldora.
 
-use egui::{Color32, FontId, Painter, Pos2, Rect, Response, Sense, Ui, vec2};
+use egui::{Color32, Painter, Pos2, Rect, Response, Sense, Ui, vec2};
 
 use crate::tokens::Palette;
 
@@ -37,7 +37,7 @@ pub fn badge_colors(kind: BadgeKind, c: &Palette) -> (Color32, Color32) {
 /// Dibuja una insignia centrada en `center`; devuelve su rectángulo.
 pub fn paint_badge(painter: &Painter, center: Pos2, text: &str, kind: BadgeKind, colors: &Palette, size: f32) -> Rect {
     let (fill, ink) = badge_colors(kind, colors);
-    let galley = painter.layout_no_wrap(text.to_string(), FontId::proportional(size), ink);
+    let galley = painter.layout_no_wrap(text.to_string(), crate::theme::medium_font(painter.ctx(), size), ink);
     let h = size + 5.0;
     let w = (galley.size().x + 10.0).max(h);
     let rect = Rect::from_center_size(center, vec2(w, h));
@@ -50,7 +50,7 @@ pub fn paint_badge(painter: &Painter, center: Pos2, text: &str, kind: BadgeKind,
 pub fn badge(ui: &mut Ui, text: &str, kind: BadgeKind) -> Response {
     let colors = crate::theme::colors(ui);
     let size = crate::theme::density(ui.ctx()).small_size();
-    let galley = ui.painter().layout_no_wrap(text.to_string(), FontId::proportional(size), colors.text);
+    let galley = ui.painter().layout_no_wrap(text.to_string(), crate::theme::medium_font(ui.ctx(), size), colors.text);
     let h = size + 5.0;
     let w = (galley.size().x + 10.0).max(h);
     let (rect, resp) = ui.allocate_exact_size(vec2(w, h), Sense::hover());

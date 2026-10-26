@@ -107,14 +107,21 @@ impl<'a> Banner<'a> {
                         {
                             dismissed = true;
                         }
+                        let body = crate::theme::density(ui.ctx()).body_size();
                         if let Some(label) = self.action
-                            && ui.button(RichText::new(label).color(tone).strong()).clicked()
+                            && ui
+                                .button(
+                                    RichText::new(label).font(crate::theme::medium_font(ui.ctx(), body)).color(tone),
+                                )
+                                .clicked()
                         {
                             action = true;
                         }
                         ui.with_layout(Layout::left_to_right(Align::Center).with_main_wrap(true), |ui| {
                             if let Some(t) = self.title {
-                                ui.label(RichText::new(t).strong().color(c.text));
+                                ui.label(
+                                    RichText::new(t).font(crate::theme::semibold_font(ui.ctx(), body)).color(c.text),
+                                );
                             }
                             ui.add(egui::Label::new(RichText::new(self.text).color(c.text)).wrap());
                         });
@@ -226,8 +233,15 @@ impl Toasts {
                                 if icons::icon_button(ui, Icon::Close, pick("Dismiss", "Cerrar"), true).clicked() {
                                     closed.push(t.id);
                                 }
+                                let body = crate::theme::density(ui.ctx()).body_size();
                                 if let Some(a) = &t.action
-                                    && ui.button(RichText::new(a).color(c.accent).strong()).clicked()
+                                    && ui
+                                        .button(
+                                            RichText::new(a)
+                                                .font(crate::theme::medium_font(ui.ctx(), body))
+                                                .color(c.accent),
+                                        )
+                                        .clicked()
                                 {
                                     clicked = Some(t.id);
                                 }

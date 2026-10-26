@@ -1471,6 +1471,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui_kittest",
+ "skrifa",
  "sys-locale",
  "zbus",
 ]

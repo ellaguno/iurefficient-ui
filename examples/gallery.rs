@@ -3,7 +3,11 @@
 //!
 //! Captura sin pantalla (wgpu fuera de pantalla):
 //! `cargo run --example gallery -- /tmp/gallery.png [--dark] [--hc] [--density dense|compact|comfortable]
-//!  [--palette[=texto]] [--icons] [--lang en|es]`
+//!  [--palette[=texto]] [--icons] [--lang en|es] [--font bundled|system|egui|CARPETA] [--no-hint]`
+//!
+//! `--font CARPETA` carga una familia de una carpeta (`*-Regular`, `*-Medium`, `*-SemiBold`,
+//! `*-Bold`, `*Tabular-Regular`; ver `system::FontSet::from_dir`): así se compararon las fuentes
+//! candidatas de `docs/typography/`.
 //!
 //! Sin ruta abre una ventana interactiva: `cargo run --example gallery`.
 
@@ -74,6 +78,9 @@ fn mail(i: usize) -> Mail {
 
 struct Gallery {
     started: bool,
+    /// `bundled`, `system`, `egui` o una carpeta con la familia.
+    font: String,
+    hinting: Option<bool>,
     mode: ThemeMode,
     density: Density,
     module: String,
@@ -154,6 +161,8 @@ impl Gallery {
         list.selection.click(4, egui::Modifiers::COMMAND, &|i| i as u64);
         Gallery {
             started: false,
+            font: "bundled".into(),
+            hinting: None,
             mode,
             density,
             module: "mail".into(),
@@ -182,7 +191,24 @@ impl Gallery {
         if !self.started {
             self.started = true;
             system::watch_system_theme(&ctx);
-            system::install_fonts(&ctx, true);
+            match self.font.as_str() {
+                "bundled" => {
+                    system::install_fonts(&ctx, true);
+                }
+                "system" => {
+                    system::install(&ctx, system::FontSource::System);
+                }
+                "egui" => {
+                    system::install(&ctx, system::FontSource::Egui);
+                }
+                dir => match system::FontSet::from_dir(std::path::Path::new(dir)) {
+                    Some(mut set) => {
+                        set.hinting = self.hinting;
+                        system::install_font_set(&ctx, &set, true);
+                    }
+                    None => eprintln!("sin fuente válida en {dir}"),
+                },
+            }
             theme::apply(&ctx, self.mode, self.density);
         }
         theme::refresh(&ctx);
@@ -255,7 +281,11 @@ impl Gallery {
             ("13:30", pick("Lunch with ACME", "Comida con ACME")),
         ] {
             ui.horizontal(|ui| {
-                ui.label(RichText::new(time).color(c.accent).strong());
+                ui.label(
+                    RichText::new(time)
+                        .font(theme::tabular_font(ui.ctx(), theme::body_font(ui.ctx()).size))
+                        .color(c.accent),
+                );
                 ui.label(RichText::new(what).color(c.text));
             });
         }
@@ -340,7 +370,7 @@ impl Gallery {
                     if m.attachment {
                         row.icon_colored(3, Icon::Attachment, c.text_muted, c.text_muted);
                     }
-                    row.text_muted(4, &m.date);
+                    row.text_muted_tabular(4, &m.date);
                 },
             );
         if let Some((col, _)) = out.sort
@@ -353,12 +383,12 @@ impl Gallery {
     fn detail(&mut self, ui: &mut Ui) {
         let c = theme::colors(ui);
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-            ui.label(RichText::new(SUBJECTS[0]).size(20.0).strong().color(c.text));
+            ui.label(RichText::new(SUBJECTS[0]).font(theme::semibold_font(ui.ctx(), 20.0)).color(c.text));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 avatar(ui, SENDERS[0].0, SENDERS[0].1, 36.0);
                 ui.vertical(|ui| {
-                    ui.label(RichText::new(SENDERS[0].0).strong().color(c.text));
+                    ui.label(RichText::new(SENDERS[0].0).font(theme::semibold_font(ui.ctx(), theme::body_font(ui.ctx()).size)).color(c.text));
                     ui.label(RichText::new(format!("{} · {}", SENDERS[0].1, pick("today 10:42", "hoy 10:42"))).color(c.text_muted));
                 });
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -453,7 +483,9 @@ impl Gallery {
 fn icon_sheet(ui: &mut Ui) {
     let c = theme::colors(ui);
     ui.label(
-        RichText::new(format!("{} ({})", pick("Icons", "Iconos"), Icon::ALL.len())).size(18.0).strong().color(c.text),
+        RichText::new(format!("{} ({})", pick("Icons", "Iconos"), Icon::ALL.len()))
+            .font(theme::semibold_font(ui.ctx(), 18.0))
+            .color(c.text),
     );
     ui.add_space(8.0);
     let cols = 12;
@@ -477,7 +509,12 @@ fn main() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let out = args
         .iter()
-        .find(|a| !a.starts_with("--") && !matches!(a.as_str(), "dense" | "compact" | "comfortable" | "en" | "es"))
+        .enumerate()
+        .find(|(i, a)| {
+            !a.starts_with("--")
+                && !(*i > 0 && matches!(args[i - 1].as_str(), "--density" | "--lang" | "--font" | "--ppp"))
+        })
+        .map(|(_, a)| a)
         .cloned();
     let flag_value = |name: &str| {
         args.iter()
@@ -501,6 +538,12 @@ fn main() -> Result<(), String> {
     };
     let mut g = Gallery::new(mode, density);
     g.icons_only = args.iter().any(|a| a == "--icons");
+    if let Some(f) = flag_value("--font") {
+        g.font = f;
+    }
+    if args.iter().any(|a| a == "--no-hint") {
+        g.hinting = Some(false);
+    }
     if let Some(q) = args.iter().find_map(|a| a.strip_prefix("--palette")) {
         g.palette.open_with(q.strip_prefix('=').unwrap_or(""));
     }

@@ -94,6 +94,7 @@ pub fn apply(ctx: &Context, mode: ThemeMode, density: Density) {
     ctx.set_visuals_of(egui::Theme::Light, visuals(&tokens::LIGHT));
     ctx.set_visuals_of(egui::Theme::Dark, visuals(dark_palette));
     ctx.all_styles_mut(|s| style_for_density(s, density));
+    use_semibold_headings(ctx);
     ctx.data_mut(|d| d.insert_temp(state_id(), Applied { mode, density, system }));
     // El marco de la ventana (en GNOME/Wayland lo dibuja la app) con el mismo tema.
     let frame = match dark {
@@ -161,16 +162,62 @@ pub fn small_font(ctx: &Context) -> FontId {
     FontId::proportional(density(ctx).small_size())
 }
 
-/// Familia en negritas (no leídos, títulos). Si [`crate::system::install_fonts`] no encontró una
-/// negrita libre, es la proporcional normal.
+/// La familia con nombre `name` si está instalada; si no, la proporcional normal.
+fn family_or_regular(ctx: &Context, name: &str) -> FontFamily {
+    if crate::system::has_family(ctx, name) { FontFamily::Name(name.into()) } else { FontFamily::Proportional }
+}
+
+/// Familia en negritas (700). Si [`crate::system::install_fonts`] no se llamó, es la proporcional
+/// normal. Para no leídos y títulos se prefiere [`semibold_family`], como en macOS.
 pub fn bold_family(ctx: &Context) -> FontFamily {
-    let bold = FontFamily::Name(crate::system::BOLD_FAMILY.into());
-    if ctx.fonts(|f| f.families().contains(&bold)) { bold } else { FontFamily::Proportional }
+    family_or_regular(ctx, crate::system::BOLD_FAMILY)
 }
 
 /// Fuente en negritas del tamaño pedido.
 pub fn bold_font(ctx: &Context, size: f32) -> FontId {
     FontId::new(size, bold_family(ctx))
+}
+
+/// Familia de peso medio (500): botones, etiquetas de sección, encabezados de columna.
+pub fn medium_family(ctx: &Context) -> FontFamily {
+    family_or_regular(ctx, crate::system::MEDIUM_FAMILY)
+}
+
+/// Fuente de peso medio del tamaño pedido.
+pub fn medium_font(ctx: &Context, size: f32) -> FontId {
+    FontId::new(size, medium_family(ctx))
+}
+
+/// Familia seminegrita (600): no leídos, títulos, nombres.
+pub fn semibold_family(ctx: &Context) -> FontFamily {
+    family_or_regular(ctx, crate::system::SEMIBOLD_FAMILY)
+}
+
+/// Fuente seminegrita del tamaño pedido.
+pub fn semibold_font(ctx: &Context, size: f32) -> FontId {
+    FontId::new(size, semibold_family(ctx))
+}
+
+/// Familia con cifras de ancho fijo: horas, fechas y conteos alineados en columnas. Las letras
+/// salen de la normal (egui no deja activar `tnum`; ver README, «Tipografía»).
+pub fn tabular_family(ctx: &Context) -> FontFamily {
+    family_or_regular(ctx, crate::system::TABULAR_FAMILY)
+}
+
+/// Fuente de cifras tabulares del tamaño pedido.
+pub fn tabular_font(ctx: &Context, size: f32) -> FontId {
+    FontId::new(size, tabular_family(ctx))
+}
+
+/// Pone los títulos (`TextStyle::Heading`) en seminegrita si la familia está instalada. Lo llaman
+/// [`apply`] y la instalación de fuentes, así que el orden entre ambas no importa.
+pub fn use_semibold_headings(ctx: &Context) {
+    let family = semibold_family(ctx);
+    ctx.all_styles_mut(|s| {
+        if let Some(h) = s.text_styles.get_mut(&TextStyle::Heading) {
+            h.family = family.clone();
+        }
+    });
 }
 
 /// Mezcla `top` (con su alfa) sobre `bottom` opaco.
@@ -268,11 +315,7 @@ pub fn style_for_density(style: &mut egui::Style, d: Density) {
     s.window_margin = Margin::same(12);
     s.combo_height = 320.0;
     let body = d.body_size();
-    let heading = match d {
-        Density::Comfortable => tokens::text::HEADING,
-        Density::Compact => 17.0,
-        Density::Dense => 16.0,
-    };
+    let heading = d.heading_size();
     style.text_styles = [
         (TextStyle::Small, FontId::proportional(d.small_size())),
         (TextStyle::Body, FontId::proportional(body)),

@@ -268,6 +268,8 @@ pub struct Row<'a> {
     font: FontId,
     bold: FontId,
     small: FontId,
+    tabular: FontId,
+    tabular_small: FontId,
     style: RowStyle,
     label: String,
     pad: f32,
@@ -306,7 +308,7 @@ impl Row<'_> {
         if self.style.muted { self.colors.text_muted } else { self.colors.text }
     }
 
-    /// Texto normal en la celda (negritas si la fila no está leída).
+    /// Texto normal en la celda (seminegrita si la fila no está leída).
     pub fn text(&mut self, col: usize, text: &str) {
         let font = if self.style.unread { self.bold.clone() } else { self.font.clone() };
         let ink = self.ink();
@@ -316,6 +318,14 @@ impl Row<'_> {
     /// Texto secundario (fecha, vista previa).
     pub fn text_muted(&mut self, col: usize, text: &str) {
         let font = if self.style.unread { self.font.clone() } else { self.small.clone() };
+        let ink = if self.style.unread { self.colors.text } else { self.colors.text_muted };
+        self.text_with(col, text, font, ink);
+    }
+
+    /// Como [`Row::text_muted`] pero con cifras de ancho fijo: horas, fechas, tamaños y conteos
+    /// quedan alineados en la columna.
+    pub fn text_muted_tabular(&mut self, col: usize, text: &str) {
+        let font = if self.style.unread { self.tabular.clone() } else { self.tabular_small.clone() };
         let ink = if self.style.unread { self.colors.text } else { self.colors.text_muted };
         self.text_with(col, text, font, ink);
     }
@@ -450,7 +460,9 @@ impl<'c> ListView<'c> {
         let pad = density.cell_padding();
         let font = crate::theme::body_font(&ctx);
         let small = crate::theme::small_font(&ctx);
-        let bold = crate::theme::bold_font(&ctx, font.size);
+        let bold = crate::theme::semibold_font(&ctx, font.size);
+        let tabular = crate::theme::tabular_font(&ctx, font.size);
+        let tabular_small = crate::theme::tabular_font(&ctx, small.size);
         let rows = self.rows;
         state.selection.clamp(rows);
         let key_of: &dyn Fn(usize) -> u64 = &key_of;
@@ -490,7 +502,7 @@ impl<'c> ListView<'c> {
                     pos2(cell.left() + pad, cell.top()),
                     pos2(cell.right() - pad - arrow_w, cell.bottom()),
                 );
-                let title_font = FontId::new(small.size, crate::theme::bold_family(&ctx));
+                let title_font = crate::theme::medium_font(&ctx, small.size);
                 let g = crate::widgets::text::elided(ui, &col.title, title_font, colors.text_muted, inner.width());
                 let tx = if col.align == Align::Max { inner.right() - g.size().x } else { inner.left() };
                 p.galley(pos2(tx, inner.center().y - g.size().y / 2.0), g, colors.text_muted);
@@ -669,6 +681,8 @@ impl<'c> ListView<'c> {
                     font: font.clone(),
                     bold: bold.clone(),
                     small: small.clone(),
+                    tabular: tabular.clone(),
+                    tabular_small: tabular_small.clone(),
                     style: RowStyle::default(),
                     label: String::new(),
                     pad,

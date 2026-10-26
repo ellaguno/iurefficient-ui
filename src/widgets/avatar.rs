@@ -1,7 +1,7 @@
 //! Avatar con iniciales en un círculo de color fijo por persona (el color sale del correo, así
 //! que la misma persona tiene el mismo color en todas las apps y equipos).
 
-use egui::{Color32, FontId, Painter, Pos2, Response, Sense, Ui, vec2};
+use egui::{Color32, Painter, Pos2, Response, Sense, Ui, vec2};
 
 /// Colores de los avatares: todos con contraste AA para el texto blanco.
 pub const AVATAR_COLORS: [Color32; 10] = [
@@ -62,7 +62,7 @@ pub fn paint_avatar(painter: &Painter, center: Pos2, diameter: f32, name: &str, 
     painter.circle_filled(center, diameter / 2.0, avatar_color(key));
     let text = initials(name, email);
     let size = (diameter * if text.chars().count() > 1 { 0.38 } else { 0.45 }).max(6.0);
-    let galley = painter.layout_no_wrap(text, FontId::proportional(size), Color32::WHITE);
+    let galley = painter.layout_no_wrap(text, crate::theme::semibold_font(painter.ctx(), size), Color32::WHITE);
     painter.galley(center - galley.size() / 2.0, galley, Color32::WHITE);
 }
 

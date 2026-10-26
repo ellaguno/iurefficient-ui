@@ -41,7 +41,7 @@ impl<'a> EmptyState<'a> {
             icons::paint(ui.painter(), r.shrink(18.0), self.icon, c.text_muted, c.accent);
             crate::a11y::label(&resp, self.title);
             ui.add_space(12.0);
-            ui.label(RichText::new(self.title).size(16.0).strong().color(c.text));
+            ui.label(RichText::new(self.title).font(crate::theme::semibold_font(ui.ctx(), 16.0)).color(c.text));
             if let Some(b) = self.body {
                 ui.add_space(4.0);
                 ui.label(RichText::new(b).color(c.text_muted));

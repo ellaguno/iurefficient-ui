@@ -165,11 +165,18 @@ pub mod radius {
 }
 
 /// Tamaños de letra base (densidad cómoda), en puntos lógicos. La densidad los ajusta.
+///
+/// Escala pensada para Inter (altura de x de 0.55 em: a igual tamaño se lee más grande que Noto
+/// o Source Sans): cuerpo de 14/13/12.5 según la densidad, como el 13 de macOS; títulos en
+/// seminegrita en lugar de agrandarlos. egui no tiene espaciado entre letras, así que los
+/// tamaños grandes bajan un poco en vez de apretar el tracking.
 pub mod text {
     pub const SMALL: f32 = 11.5;
     pub const BODY: f32 = 14.0;
     pub const HEADING: f32 = 18.0;
     pub const TITLE: f32 = 24.0;
+    /// Título de la vista de lectura (asunto de un mensaje, nombre de un contacto).
+    pub const SUBTITLE: f32 = 20.0;
 }
 
 /// Densidad de la interfaz: alto de las filas, márgenes y tamaño de letra. «Densa» supera a
@@ -198,8 +205,17 @@ impl Density {
     pub fn body_size(self) -> f32 {
         match self {
             Density::Comfortable => text::BODY,
-            Density::Compact => 13.5,
-            Density::Dense => 13.0,
+            Density::Compact => 13.0,
+            Density::Dense => 12.5,
+        }
+    }
+
+    /// Tamaño de los títulos de sección (`TextStyle::Heading`, en seminegrita).
+    pub fn heading_size(self) -> f32 {
+        match self {
+            Density::Comfortable => text::HEADING,
+            Density::Compact => 16.0,
+            Density::Dense => 15.0,
         }
     }
 

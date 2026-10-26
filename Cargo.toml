@@ -11,15 +11,23 @@ readme = "README.md"
 publish = false
 
 [features]
-default = ["portal"]
+default = ["portal", "bundled-fonts"]
 # Sigue en vivo el modo claro/oscuro del escritorio por el portal XDG (Linux; zbus, Rust puro).
 # Fuera de Linux, o sin esta característica, `system::watch_system_theme` no hace nada.
 portal = ["dep:zbus"]
+# Incluye Inter 4.1 (OFL-1.1; Regular, Medium, SemiBold, Bold y cifras tabulares, ~1.7 MB) para
+# que la interfaz se vea igual en todos los sistemas. Sin ella se usa la fuente libre del sistema.
+bundled-fonts = []
 
 [dependencies]
-egui = "0.37"
+# `default_fonts`: `system::install_fonts` usa las fuentes de egui como respaldo (símbolos y el
+# caso sin fuente libre instalada); sin ellas egui 0.37 no trae ninguna y falla al dibujar texto.
+egui = { version = "0.37", features = ["default_fonts"] }
 # Idioma del sistema en Windows y macOS (Rust puro; usa las APIs del SO, sin crates -sys).
 sys-locale = "0.3"
+# Valida un archivo de fuente antes de dárselo a egui (que entra en pánico con uno dañado). Es la
+# misma versión que ya usa epaint para leer las fuentes: no agrega código nuevo al binario.
+skrifa = { version = "0.44", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"], optional = true }
