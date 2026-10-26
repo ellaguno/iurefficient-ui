@@ -1,0 +1,42 @@
+[package]
+name = "iurefficient-ui"
+description = "Kit de interfaz egui compartido de la suite Iurefficient (IureDesk, IureProject): tema, iconos, lista virtual, paleta de comandos"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "FSL-1.1-ALv2"
+authors = ["Eduardo Llaguno"]
+repository = "https://github.com/ellaguno/iurefficient-ui"
+readme = "README.md"
+publish = false
+
+[features]
+default = ["portal"]
+# Sigue en vivo el modo claro/oscuro del escritorio por el portal XDG (Linux; zbus, Rust puro).
+# Fuera de Linux, o sin esta característica, `system::watch_system_theme` no hace nada.
+portal = ["dep:zbus"]
+
+[dependencies]
+egui = "0.37"
+# Idioma del sistema en Windows y macOS (Rust puro; usa las APIs del SO, sin crates -sys).
+sys-locale = "0.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"], optional = true }
+
+[dev-dependencies]
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot"] }
+eframe = { version = "0.37", default-features = false, features = ["wgpu", "wayland", "x11", "accesskit", "default_fonts"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+too_many_arguments = "allow"
+type_complexity = "allow"
+
+[profile.dev.package."*"]
+opt-level = 2
+
