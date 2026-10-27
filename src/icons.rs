@@ -141,6 +141,11 @@ pub enum Icon {
     Minimize,
     Maximize,
     Restore,
+    // --- Gestor personal (IureDesk, «Mi día») ---
+    /// Sol: la pantalla «Hoy» / «Mi día».
+    Sun,
+    /// Regalo: cumpleaños.
+    Gift,
 }
 
 impl Icon {
@@ -265,6 +270,8 @@ impl Icon {
         ("minimize", Icon::Minimize),
         ("maximize", Icon::Maximize),
         ("restore", Icon::Restore),
+        ("sun", Icon::Sun),
+        ("gift", Icon::Gift),
     ];
 
     /// El icono de un nombre estable; `None` si el nombre no se conoce.
@@ -1122,6 +1129,21 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, ink: Color32, accent: Color32)
         Icon::Restore => {
             p.rect_stroke(Rect::from_min_max(at(5.5, 8.5), at(15.5, 18.5)), 1.0 * k, s, egui::StrokeKind::Middle);
             line(&[(8.5, 5.5), (18.5, 5.5), (18.5, 15.5)], s);
+        }
+        Icon::Sun => {
+            circle(12.0, 12.0, 4.2, sa);
+            for i in 0..8 {
+                let a = PI / 4.0 * i as f32;
+                let (c, sn) = (a.cos(), a.sin());
+                line(&[(12.0 + 7.0 * c, 12.0 + 7.0 * sn), (12.0 + 9.5 * c, 12.0 + 9.5 * sn)], s);
+            }
+        }
+        Icon::Gift => {
+            frame(4.5, 11.0, 15.0, 9.5);
+            frame(3.0, 7.5, 18.0, 3.5);
+            line(&[(12.0, 7.5), (12.0, 20.5)], sa);
+            arc(9.5, 5.6, 2.2, 0.0, 2.0 * PI, sa);
+            arc(14.5, 5.6, 2.2, 0.0, 2.0 * PI, sa);
         }
     }
 }
