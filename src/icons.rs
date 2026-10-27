@@ -137,6 +137,10 @@ pub enum Icon {
     Menu,
     Warning,
     Alert,
+    // --- Ventana (barra de título propia) ---
+    Minimize,
+    Maximize,
+    Restore,
 }
 
 impl Icon {
@@ -258,6 +262,9 @@ impl Icon {
         ("menu", Icon::Menu),
         ("warning", Icon::Warning),
         ("alert", Icon::Alert),
+        ("minimize", Icon::Minimize),
+        ("maximize", Icon::Maximize),
+        ("restore", Icon::Restore),
     ];
 
     /// El icono de un nombre estable; `None` si el nombre no se conoce.
@@ -1106,6 +1113,15 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, ink: Color32, accent: Color32)
             circle(12.0, 12.0, 9.0, s);
             line(&[(12.0, 7.0), (12.0, 13.0)], Stroke::new(2.0 * k, accent));
             p.circle_filled(at(12.0, 16.5), 1.2 * k, accent);
+        }
+        // Botones de ventana: trazo neutro, sin acento (como los del sistema).
+        Icon::Minimize => line(&[(6.0, 13.0), (18.0, 13.0)], s),
+        Icon::Maximize => {
+            p.rect_stroke(Rect::from_min_max(at(6.0, 6.0), at(18.0, 18.0)), 1.0 * k, s, egui::StrokeKind::Middle);
+        }
+        Icon::Restore => {
+            p.rect_stroke(Rect::from_min_max(at(5.5, 8.5), at(15.5, 18.5)), 1.0 * k, s, egui::StrokeKind::Middle);
+            line(&[(8.5, 5.5), (18.5, 5.5), (18.5, 15.5)], s);
         }
     }
 }
