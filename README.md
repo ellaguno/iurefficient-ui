@@ -194,4 +194,4 @@ lectura con `ListView`.
 
 ## Licencia
 
-FSL-1.1-ALv2 ([LICENSE.md](LICENSE.md), [NOTICE](NOTICE)), titular Eduardo Llaguno Velasco.
+Apache-2.0 ([LICENSE.md](LICENSE.md), [NOTICE](NOTICE)), titular Eduardo Llaguno Velasco.
