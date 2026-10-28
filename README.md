@@ -94,6 +94,12 @@ system::install(&ctx, system::FontSource::Egui);    // solo las de egui
 if let Some(set) = system::FontSet::from_dir(std::path::Path::new("/ruta/fuentes")) {
     system::install_font_set(&ctx, &set, true);   // true: la del sistema de respaldo
 }
+// Elegible por el usuario (preferencia guardada como texto: `inter`, `system`, `family:…`):
+use iurefficient_ui::fonts::{self, FontChoice};
+fonts::install_choice(&ctx, &FontChoice::from_key("system")); // la del escritorio (GNOME: portal)
+fonts::available_families();       // IBM Plex Sans / Source Sans 3 / Noto Sans instaladas
+fonts::find_family("Ubuntu Sans"); // por nombre de familia; fuentes variables con eje `wght`
+fonts::set_crisp_text(&ctx, true); // sin subpíxeles y con ajuste horizontal a la rejilla
 ```
 
 Sin Inter en el binario: `default-features = false, features = ["portal"]`; entonces
