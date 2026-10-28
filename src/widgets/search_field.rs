@@ -92,7 +92,12 @@ impl<'a> SearchField<'a> {
                             .id(id)
                             .hint_text(hint.as_str())
                             .frame(egui::Frame::NONE)
-                            .margin(vec2(2.0, 2.0))
+                            .margin(vec2(2.0, 0.0))
+                            // Todo el alto del campo con el texto (y la pista) centrado en vertical:
+                            // si no, egui lo deja arriba de un rectángulo más alto que la línea y
+                            // se ve subido y cortado respecto al marco.
+                            .align(egui::Align2::LEFT_CENTER)
+                            .min_size(vec2(0.0, (h - 2.0).max(0.0)))
                             .desired_width((ui.available_width() - trailing).max(20.0)),
                     );
                     if !self.text.is_empty() {

@@ -301,6 +301,7 @@ pub fn visuals(p: &Palette) -> Visuals {
             w.fg_stroke = Stroke::new(1.5, p.text);
         }
     }
+    crate::fonts::apply_text_options(&mut v);
     v
 }
 

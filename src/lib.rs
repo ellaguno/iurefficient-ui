@@ -10,6 +10,7 @@
 )]
 
 pub mod a11y;
+pub mod fonts;
 pub mod fuzzy;
 pub mod icons;
 pub mod lang;

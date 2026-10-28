@@ -27,7 +27,9 @@ pub fn paint_shortcut(painter: &Painter, right_center: Pos2, text: &str, font: &
         let w = (galley.size().x + pad * 2.0).max(h);
         let rect = Rect::from_min_size(pos2(x - w, right_center.y - h / 2.0), vec2(w, h));
         painter.rect(rect, 4.0, colors.surface_alt, Stroke::new(1.0, colors.separator), egui::StrokeKind::Inside);
-        painter.galley(rect.center() - galley.size() / 2.0, galley, colors.text_muted);
+        // A píxel entero: centrado y nítido.
+        let at = (rect.center() - galley.size() / 2.0).round();
+        painter.galley(at, galley, colors.text_muted);
         x -= w + 3.0;
     }
     right_center.x - x

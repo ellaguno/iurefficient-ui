@@ -82,6 +82,35 @@ pub fn watch_system_theme(ctx: &egui::Context) {
     let _ = ctx;
 }
 
+/// Lee un texto del portal de configuración (`org.freedesktop.portal.Settings`), p. ej.
+/// `org.gnome.desktop.interface font-name`. `None` sin sesión, sin portal o si no es texto.
+#[cfg(all(target_os = "linux", feature = "portal"))]
+pub(crate) fn portal_string(namespace: &str, key: &str) -> Option<String> {
+    use zbus::zvariant::{OwnedValue, Value};
+    let conn = zbus::blocking::Connection::session().ok()?;
+    let call = |method: &str| {
+        conn.call_method(
+            Some("org.freedesktop.portal.Desktop"),
+            "/org/freedesktop/portal/desktop",
+            Some("org.freedesktop.portal.Settings"),
+            method,
+            &(namespace, key),
+        )
+    };
+    fn text(v: &Value<'_>, depth: u32) -> Option<String> {
+        match v {
+            Value::Str(s) => Some(s.as_str().chars().take(200).collect()),
+            Value::Value(inner) if depth < 3 => text(inner, depth + 1),
+            _ => None,
+        }
+    }
+    let v: OwnedValue = match call("ReadOne") {
+        Ok(m) => m.body().deserialize().ok()?,
+        Err(_) => call("Read").ok()?.body().deserialize().ok()?,
+    };
+    text(&v, 0)
+}
+
 #[cfg(all(target_os = "linux", feature = "portal"))]
 mod portal {
     /// Lee `color-scheme` del portal de configuración. `None` si no hay sesión o portal.
@@ -129,7 +158,7 @@ pub struct SystemFont {
     pub bold: Option<Arc<Vec<u8>>>,
 }
 
-fn font_dirs() -> Vec<PathBuf> {
+pub(crate) fn font_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = vec![
         PathBuf::from("/usr/share/fonts"),
         PathBuf::from("/usr/local/share/fonts"),
@@ -229,12 +258,19 @@ impl FontBytes {
         })
     }
 
-    fn font_data(&self, hinting: Option<bool>) -> egui::FontData {
+    /// Datos para egui; `weight` fija el eje `wght` de una fuente variable.
+    fn font_data(&self, hinting: Option<bool>, weight: Option<f32>) -> egui::FontData {
         let data = match self {
             FontBytes::Static(b) => egui::FontData::from_static(b),
             FontBytes::Shared(v) => egui::FontData::from_blob(v.clone(), 0),
         };
-        data.tweak(egui::FontTweak { hinting, ..Default::default() })
+        let coords = weight.map(|w| egui::epaint::text::VariationCoords::new([("wght", w)])).unwrap_or_default();
+        data.tweak(egui::FontTweak {
+            hinting,
+            hinting_target: crate::fonts::hinting_target(),
+            coords,
+            ..Default::default()
+        })
     }
 }
 
@@ -253,6 +289,9 @@ pub struct FontSet {
     pub tabular: Option<FontBytes>,
     /// Ajuste a la rejilla de píxeles (`None`: el de egui, activado).
     pub hinting: Option<bool>,
+    /// `regular` es una fuente variable con eje `wght`: los pesos que falten se sacan de ella
+    /// (500, 600, 700) en vez de repetir la normal.
+    pub variable_weight: bool,
 }
 
 /// Inter 4.1 (rsms, OFL-1.1), la fuente incluida, con la «I» mayúscula con remates (`cv08`
@@ -270,7 +309,16 @@ mod bundled {
 impl FontSet {
     /// Una familia con un solo peso.
     pub fn new(name: impl Into<String>, regular: FontBytes) -> Self {
-        FontSet { name: name.into(), regular, medium: None, semibold: None, bold: None, tabular: None, hinting: None }
+        FontSet {
+            name: name.into(),
+            regular,
+            medium: None,
+            semibold: None,
+            bold: None,
+            tabular: None,
+            hinting: None,
+            variable_weight: false,
+        }
     }
 
     /// La fuente incluida en el binario (Inter), o `None` sin la característica `bundled-fonts`.
@@ -285,6 +333,7 @@ impl FontSet {
                 bold: Some(FontBytes::Static(bundled::BOLD)),
                 tabular: Some(FontBytes::Static(bundled::TABULAR)),
                 hinting: None,
+                variable_weight: false,
             })
         }
         #[cfg(not(feature = "bundled-fonts"))]
@@ -422,30 +471,37 @@ fn install_set(ctx: &egui::Context, set: Option<&FontSet>, fallback: Option<&Fon
     let mut fonts = egui::FontDefinitions::default();
     let egui_list = fonts.families.get(&egui::FontFamily::Proportional).cloned().unwrap_or_default();
     // Respaldo común: la libre del sistema (normal y negrita) y luego las de egui.
-    let mut add = |key: &str, bytes: &FontBytes, hinting: Option<bool>| -> Option<String> {
+    let mut add_w = |key: &str, bytes: &FontBytes, hinting: Option<bool>, weight: Option<f32>| -> Option<String> {
         if !bytes.is_valid() {
             return None;
         }
-        fonts.font_data.insert(key.into(), Arc::new(bytes.font_data(hinting)));
+        fonts.font_data.insert(key.into(), Arc::new(bytes.font_data(hinting, weight)));
         Some(key.to_string())
     };
     let (mut fb_regular, mut fb_bold) = (Vec::new(), Vec::new());
     if let Some(f) = fallback.filter(|f| set.is_none_or(|s| s.name != f.name)) {
-        fb_regular.extend(add("iurefficient-fallback", &f.regular, f.hinting));
-        fb_bold.extend(f.bold.as_ref().and_then(|b| add("iurefficient-fallback-bold", b, f.hinting)));
+        fb_regular.extend(add_w("iurefficient-fallback", &f.regular, f.hinting, None));
+        fb_bold.extend(f.bold.as_ref().and_then(|b| add_w("iurefficient-fallback-bold", b, f.hinting, None)));
         fb_bold.extend(fb_regular.iter().cloned());
     }
     let (mut regular, mut medium, mut semibold, mut bold, mut tabular) =
         (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
     let mut name = None;
+    let var = |w: f32| set.filter(|s| s.variable_weight).map(|_| w);
     if let Some(s) = set
-        && let Some(r) = add("iurefficient-system", &s.regular, s.hinting)
+        && let Some(r) = add_w("iurefficient-system", &s.regular, s.hinting, var(400.0))
     {
         name = Some(s.name.clone());
-        let m = s.medium.as_ref().and_then(|b| add("iurefficient-medium", b, s.hinting));
-        let b = s.bold.as_ref().and_then(|b| add("iurefficient-system-bold", b, s.hinting));
-        let sb = s.semibold.as_ref().and_then(|b| add("iurefficient-semibold", b, s.hinting)).or_else(|| b.clone());
-        let t = s.tabular.as_ref().and_then(|b| add("iurefficient-tabular", b, s.hinting));
+        // Peso que falta: de la variable con su eje, o nada (cae en el más cercano).
+        let mut weight = |key: &str, own: Option<&FontBytes>, w: f32| match own {
+            Some(b) => add_w(key, b, s.hinting, None),
+            None if s.variable_weight => add_w(key, &s.regular, s.hinting, Some(w)),
+            None => None,
+        };
+        let m = weight("iurefficient-medium", s.medium.as_ref(), 500.0);
+        let b = weight("iurefficient-system-bold", s.bold.as_ref(), 700.0);
+        let sb = weight("iurefficient-semibold", s.semibold.as_ref(), 600.0).or_else(|| b.clone());
+        let t = s.tabular.as_ref().and_then(|b| add_w("iurefficient-tabular", b, s.hinting, None));
         regular.push(r.clone());
         medium.extend(m.into_iter().chain([r.clone()]));
         semibold.extend(sb.into_iter().chain([r.clone()]));
