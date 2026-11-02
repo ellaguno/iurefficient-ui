@@ -304,3 +304,28 @@ fn list_snapshots() {
     }
     results.unwrap();
 }
+
+// ---------------------------------------------------------------------------------------------
+// Emoji (UX-7 de IureDesk)
+
+/// Un asunto con emoji se dibuja (kittest entra en pánico con un glifo que falta), con las fuentes
+/// de la interfaz sin las del sistema (monocromos de egui) y con ellas (a color si hay una).
+#[test]
+fn emoji_labels_render_without_missing_glyphs() {
+    let _gpu = GPU.lock().unwrap_or_else(|e| e.into_inner());
+    for (use_system, mode) in [(false, ThemeMode::Light), (true, ThemeMode::Dark)] {
+        let mut h = Harness::builder().with_size(vec2(360.0, 80.0)).build_ui(move |ui| {
+            if ui.ctx().cumulative_pass_nr() == 0 {
+                setup(ui.ctx(), mode, Density::Compact);
+                iurefficient_ui::system::install_fonts(ui.ctx(), use_system);
+            }
+            ui.label("🔁 🚨 ✅ 📎 Recordatorio semanal");
+            ui.label(egui::RichText::new("🔁 🚨 ✅ 📎").strong());
+            ui.label(egui::RichText::new("🔁 🚨 ✅ 📎").monospace());
+        });
+        h.run();
+        let _ = h.get_by_label("🔁 🚨 ✅ 📎 Recordatorio semanal");
+        let image = h.render().expect("render");
+        assert!(image.width() > 0);
+    }
+}

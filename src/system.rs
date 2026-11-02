@@ -231,6 +231,49 @@ fn find(dir: &Path, name: &str, depth: u32) -> Option<PathBuf> {
     subdirs.into_iter().find_map(|d| find(&d, name, depth + 1))
 }
 
+/// Fuentes de emoji a color que se aceptan, en orden de preferencia (nombre exacto del archivo).
+/// Se leen del sistema al arrancar y nunca se incluyen en el binario: Noto Color Emoji (CBDT o
+/// COLRv1, la de casi todas las distribuciones), Twemoji (COLR, la de Firefox) y Segoe UI Emoji
+/// (COLR, la del propio Windows). Apple Color Emoji no está: pesa ~190 MB y habría que tenerla
+/// entera en memoria; en macOS quedan los monocromos salvo que se instale Noto Color Emoji.
+const COLOR_EMOJI_FONTS: [&str; 6] = [
+    "NotoColorEmoji.ttf",
+    "Noto-COLRv1.ttf",
+    "NotoColorEmoji-Regular.ttf",
+    "Twemoji.Mozilla.ttf",
+    "TwemojiMozilla.ttf",
+    "seguiemj.ttf",
+];
+
+/// Tamaño máximo de una fuente de emoji a color (Noto Color Emoji pesa ~10 MB, Segoe ~17 MB).
+const MAX_EMOJI_FONT: u64 = 40_000_000;
+
+/// La fuente de emoji a color del sistema, si hay una que epaint pueda dibujar (con la
+/// característica `color-emoji`; sin ella siempre `None`). La búsqueda se hace una sola vez.
+pub fn color_emoji_font() -> Option<FontBytes> {
+    #[cfg(feature = "color-emoji")]
+    {
+        static FOUND: OnceLock<Option<Arc<Vec<u8>>>> = OnceLock::new();
+        FOUND.get_or_init(|| find_color_emoji(&font_dirs())).clone().map(FontBytes::Shared)
+    }
+    #[cfg(not(feature = "color-emoji"))]
+    None
+}
+
+#[cfg_attr(not(feature = "color-emoji"), allow(dead_code))]
+fn find_color_emoji(dirs: &[PathBuf]) -> Option<Arc<Vec<u8>>> {
+    COLOR_EMOJI_FONTS.iter().find_map(|name| {
+        dirs.iter().find_map(|d| {
+            let path = find(d, name, 0)?;
+            if std::fs::metadata(&path).ok()?.len() > MAX_EMOJI_FONT {
+                return None;
+            }
+            let bytes = Arc::new(std::fs::read(&path).ok()?);
+            FontBytes::Shared(bytes.clone()).is_color_emoji().then_some(bytes)
+        })
+    })
+}
+
 /// Bytes de un archivo de fuente: incrustados en el binario o leídos del disco (compartidos).
 #[derive(Clone, Debug)]
 pub enum FontBytes {
@@ -255,6 +298,20 @@ impl FontBytes {
             let cmap = f.charmap();
             (cmap.map('a').is_some() || cmap.map('0').is_some())
                 && f.outline_glyphs().get(cmap.map('0').or(cmap.map('a')).unwrap_or_default()).is_some()
+        })
+    }
+
+    /// ¿Es una fuente de emoji a color que se puede leer? Debe tener 😀 y 🔁 con un glifo a color
+    /// (`COLR`) o un mapa de bits (`CBDT`, `sbix`); el contorno suele estar vacío en estas fuentes.
+    pub fn is_color_emoji(&self) -> bool {
+        use skrifa::MetadataProvider as _;
+        let Ok(f) = skrifa::FontRef::new(self.as_slice()) else { return false };
+        let cmap = f.charmap();
+        let (colors, strikes) = (f.color_glyphs(), f.bitmap_strikes());
+        ['\u{1F600}', '\u{1F501}'].iter().all(|&c| {
+            cmap.map(c).is_some_and(|g| {
+                colors.get(g).is_some() || strikes.glyph_for_size(skrifa::instance::Size::new(32.0), g).is_some()
+            })
         })
     }
 
@@ -416,32 +473,37 @@ pub fn install(ctx: &egui::Context, source: FontSource) -> Option<String> {
     };
     // La libre del sistema queda de respaldo (símbolos y letras que Inter no tenga).
     let fallback = if source == FontSource::Bundled { FontSet::system() } else { None };
-    install_set(ctx, set.as_ref(), fallback.as_ref())
+    let emoji = if source == FontSource::Egui { None } else { color_emoji_font() };
+    install_set(ctx, set.as_ref(), fallback.as_ref(), emoji.as_ref())
 }
 
 /// Instala las fuentes en el contexto. Con la característica `bundled-fonts` (por omisión) la
 /// principal es Inter, igual en Linux, macOS y Windows, y `use_system` solo agrega la libre del
 /// sistema como respaldo; sin ella, la libre del sistema va primero si `use_system` (el
-/// comportamiento anterior). Las de egui quedan siempre al final (símbolos, emoji). Registra
+/// comportamiento anterior). Las de egui quedan siempre al final (símbolos, emoji); con
+/// `use_system` la de emoji a color del sistema ([`color_emoji_font`]) va antes que ellas. Registra
 /// [`BOLD_FAMILY`], [`MEDIUM_FAMILY`], [`SEMIBOLD_FAMILY`] y [`TABULAR_FAMILY`]. Devuelve el nombre
 /// de la fuente principal («Inter» o el archivo del sistema), si no quedaron las de egui.
 pub fn install_fonts(ctx: &egui::Context, use_system: bool) -> Option<&'static str> {
+    let emoji = if use_system { color_emoji_font() } else { None };
     if let Some(set) = FontSet::bundled() {
         let fallback = if use_system { FontSet::system() } else { None };
-        install_set(ctx, Some(&set), fallback.as_ref());
+        install_set(ctx, Some(&set), fallback.as_ref(), emoji.as_ref());
         return Some("Inter");
     }
     let found = if use_system { system_font() } else { None };
     let set = FontSet::system().filter(|_| use_system);
-    install_set(ctx, set.as_ref(), None);
+    install_set(ctx, set.as_ref(), None, emoji.as_ref());
     found.map(|f| f.name)
 }
 
 /// Instala una familia propia (p. ej. [`FontSet::from_dir`]) con la libre del sistema y las de
-/// egui de respaldo. Una fuente que no se pueda leer se ignora (nunca llega a egui).
+/// egui de respaldo (y, con `system_fallback`, la de emoji a color del sistema). Una fuente que no
+/// se pueda leer se ignora (nunca llega a egui).
 pub fn install_font_set(ctx: &egui::Context, set: &FontSet, system_fallback: bool) {
     let fallback = if system_fallback { FontSet::system() } else { None };
-    install_set(ctx, Some(set), fallback.as_ref());
+    let emoji = if system_fallback { color_emoji_font() } else { None };
+    install_set(ctx, Some(set), fallback.as_ref(), emoji.as_ref());
 }
 
 /// Familias con nombre que registra la instalación (además de `Proportional`).
@@ -467,9 +529,50 @@ pub fn has_family(ctx: &egui::Context, name: &str) -> bool {
         && ctx.data(|d| d.get_temp::<Installed>(installed_id())).is_some()
 }
 
-fn install_set(ctx: &egui::Context, set: Option<&FontSet>, fallback: Option<&FontSet>) -> Option<String> {
+fn install_set(
+    ctx: &egui::Context,
+    set: Option<&FontSet>,
+    fallback: Option<&FontSet>,
+    emoji: Option<&FontBytes>,
+) -> Option<String> {
+    let (fonts, name) = definitions(set, fallback, emoji);
+    ctx.set_fonts(fonts);
+    ctx.data_mut(|d| d.insert_temp(installed_id(), Installed { name: name.clone() }));
+    // Los títulos (`TextStyle::Heading`) en seminegrita, como en macOS.
+    crate::theme::use_semibold_headings(ctx);
+    name
+}
+
+/// Clave de la fuente de emoji a color del sistema en las definiciones.
+const COLOR_EMOJI_KEY: &str = "iurefficient-color-emoji";
+
+/// Primera fuente de emoji de egui en una lista (`NotoEmoji-Regular`, `emoji-icon-font`): la de
+/// color va justo antes, para que gane a los monocromos pero no a las letras ni a los símbolos.
+fn insert_color_emoji(list: &mut Vec<String>) {
+    if list.iter().any(|k| k == COLOR_EMOJI_KEY) {
+        return;
+    }
+    let at = list.iter().position(|k| k == "NotoEmoji-Regular" || k == "emoji-icon-font").unwrap_or(list.len());
+    list.insert(at, COLOR_EMOJI_KEY.to_string());
+}
+
+/// Las definiciones de fuentes y el nombre de la familia principal (sin tocar el contexto).
+fn definitions(
+    set: Option<&FontSet>,
+    fallback: Option<&FontSet>,
+    emoji: Option<&FontBytes>,
+) -> (egui::FontDefinitions, Option<String>) {
     let mut fonts = egui::FontDefinitions::default();
-    let egui_list = fonts.families.get(&egui::FontFamily::Proportional).cloned().unwrap_or_default();
+    let mut egui_list = fonts.families.get(&egui::FontFamily::Proportional).cloned().unwrap_or_default();
+    // Emoji a color del sistema antes que los monocromos de egui (en todas las familias, también
+    // la monoespaciada). Sin escala propia: sus mapas de bits ya ocupan el alto de la línea.
+    if let Some(e) = emoji.filter(|e| e.is_color_emoji()) {
+        fonts.font_data.insert(COLOR_EMOJI_KEY.into(), Arc::new(e.font_data(None, None)));
+        insert_color_emoji(&mut egui_list);
+        if let Some(mono) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
+            insert_color_emoji(mono);
+        }
+    }
     // Respaldo común: la libre del sistema (normal y negrita) y luego las de egui.
     let mut add_w = |key: &str, bytes: &FontBytes, hinting: Option<bool>, weight: Option<f32>| -> Option<String> {
         if !bytes.is_valid() {
@@ -522,11 +625,7 @@ fn install_set(ctx: &egui::Context, set: Option<&FontSet>, fallback: Option<&Fon
     fonts.families.insert(egui::FontFamily::Name(SEMIBOLD_FAMILY.into()), chain(semibold, &fb_bold));
     fonts.families.insert(egui::FontFamily::Name(BOLD_FAMILY.into()), chain(bold, &fb_bold));
     fonts.families.insert(egui::FontFamily::Name(TABULAR_FAMILY.into()), chain(tabular, &fb_regular));
-    ctx.set_fonts(fonts);
-    ctx.data_mut(|d| d.insert_temp(installed_id(), Installed { name: name.clone() }));
-    // Los títulos (`TextStyle::Heading`) en seminegrita, como en macOS.
-    crate::theme::use_semibold_headings(ctx);
-    name
+    (fonts, name)
 }
 
 /// Escala del texto y de toda la interfaz (1.0 = 100 %), acotada a 80 %–200 %.
@@ -671,6 +770,84 @@ mod tests {
             assert!(set.semibold.is_some() && set.tabular.is_some() && set.bold.is_none() && set.medium.is_none());
         }
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// UX-7 (IureDesk): un 🔁 o un 🚨 en un asunto salía como un rectángulo. Los emoji de egui
+    /// (monocromos) quedan al final de todas las familias, y el de color del sistema antes que ellos.
+    #[test]
+    fn emoji_fonts_are_in_every_family() {
+        let families = |defs: &egui::FontDefinitions| -> Vec<Vec<String>> {
+            let mut f: Vec<egui::FontFamily> = [BOLD_FAMILY, MEDIUM_FAMILY, SEMIBOLD_FAMILY, TABULAR_FAMILY]
+                .map(|n| egui::FontFamily::Name(n.into()))
+                .into();
+            f.extend([egui::FontFamily::Proportional, egui::FontFamily::Monospace]);
+            f.iter().map(|f| defs.families.get(f).cloned().unwrap_or_default()).collect()
+        };
+        let (defs, _) = definitions(FontSet::bundled().as_ref(), None, None);
+        for list in families(&defs) {
+            assert_eq!(list.contains(&"NotoEmoji-Regular".to_string()), cfg!(feature = "emoji"), "{list:?}");
+            assert!(!list.contains(&COLOR_EMOJI_KEY.to_string()));
+        }
+        // Una «fuente de emoji» que no lo es no llega a egui.
+        let bad = FontBytes::Static(b"basura");
+        let (defs, _) = definitions(None, None, Some(&bad));
+        assert!(!defs.font_data.contains_key(COLOR_EMOJI_KEY));
+        #[cfg(feature = "bundled-fonts")]
+        assert!(!FontBytes::Static(bundled::REGULAR).is_color_emoji());
+        // Con la de color del sistema (si esta máquina tiene una): antes que los monocromos.
+        if let Some(e) = color_emoji_font() {
+            let (defs, _) = definitions(FontSet::bundled().as_ref(), FontSet::system().as_ref(), Some(&e));
+            for list in families(&defs) {
+                let color = list.iter().position(|k| k == COLOR_EMOJI_KEY).expect("emoji a color");
+                if let Some(mono) = list.iter().position(|k| k == "NotoEmoji-Regular") {
+                    assert!(color < mono, "{list:?}");
+                }
+                assert!(color > 0, "las letras van antes que los emoji: {list:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn color_emoji_search_ignores_bad_files() {
+        let dir = std::env::temp_dir().join(format!("iurefficient-ui-emoji-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("noto")).unwrap();
+        std::fs::write(dir.join("noto/NotoColorEmoji.ttf"), b"no es una fuente").unwrap();
+        assert!(find_color_emoji(std::slice::from_ref(&dir)).is_none());
+        #[cfg(feature = "bundled-fonts")]
+        {
+            // Una fuente válida pero sin emoji a color, con el nombre de una que sí: se ignora.
+            std::fs::write(dir.join("seguiemj.ttf"), bundled::REGULAR).unwrap();
+            assert!(find_color_emoji(std::slice::from_ref(&dir)).is_none());
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Dibuja emoji con todas las fuentes, también la de color del sistema si hay, sin pánico y
+    /// sin caer en el carácter de reemplazo.
+    #[cfg(feature = "emoji")]
+    #[test]
+    fn emoji_render_with_every_font_source() {
+        for source in [FontSource::Bundled, FontSource::System, FontSource::Egui] {
+            let ctx = egui::Context::default();
+            ctx.set_missing_glyph_policy(egui::MissingGlyphPolicy::Panic);
+            let _ = install(&ctx, source);
+            two_frames(&ctx, |ctx| {
+                for family in [
+                    egui::FontFamily::Proportional,
+                    egui::FontFamily::Monospace,
+                    egui::FontFamily::Name(SEMIBOLD_FAMILY.into()),
+                ] {
+                    let g = ctx.fonts_mut(|f| {
+                        f.layout_no_wrap(
+                            "🔁 🚨 ✅ 📎 Re: Junta".into(),
+                            egui::FontId::new(13.0, family.clone()),
+                            egui::Color32::WHITE,
+                        )
+                    });
+                    assert!(g.size().x > 60.0, "{source:?} {family:?}");
+                }
+            });
+        }
     }
 
     #[test]

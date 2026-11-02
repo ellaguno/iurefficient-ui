@@ -11,18 +11,27 @@ readme = "README.md"
 publish = false
 
 [features]
-default = ["portal", "bundled-fonts"]
+default = ["portal", "bundled-fonts", "emoji", "color-emoji"]
 # Sigue en vivo el modo claro/oscuro del escritorio por el portal XDG (Linux; zbus, Rust puro).
 # Fuera de Linux, o sin esta característica, `system::watch_system_theme` no hace nada.
 portal = ["dep:zbus"]
 # Incluye Inter 4.1 (OFL-1.1; Regular, Medium, SemiBold, Bold y cifras tabulares, ~1.7 MB) para
 # que la interfaz se vea igual en todos los sistemas. Sin ella se usa la fuente libre del sistema.
 bundled-fonts = []
+# Emoji en todo el texto de egui: Noto Emoji (monocromo, OFL-1.1) y emoji-icon-font (MIT) de egui
+# como último respaldo de cada familia (~1.2 MB). Sin ella un 🔁 o un 🚨 sale como un rectángulo.
+emoji = ["egui/monochrome_emoji_fonts"]
+# Emoji a color con la fuente del sistema si hay una libre o del SO (Noto Color Emoji, Twemoji,
+# Segoe UI Emoji): epaint los dibuja con vello_cpu (COLR, CBDT y sbix; Rust puro). Nunca se
+# incluye en el binario; sin fuente a color quedan los monocromos de `emoji`.
+color-emoji = ["dep:epaint", "epaint/color_fonts"]
 
 [dependencies]
 # `default_fonts`: `system::install_fonts` usa las fuentes de egui como respaldo (símbolos y el
 # caso sin fuente libre instalada); sin ellas egui 0.37 no trae ninguna y falla al dibujar texto.
 egui = { version = "0.37", features = ["default_fonts"] }
+# Solo para activar `color_fonts` de epaint (la misma versión que usa egui).
+epaint = { version = "0.37", default-features = false, optional = true }
 # Idioma del sistema en Windows y macOS (Rust puro; usa las APIs del SO, sin crates -sys).
 sys-locale = "0.3"
 # Valida un archivo de fuente antes de dárselo a egui (que entra en pánico con uno dañado). Es la

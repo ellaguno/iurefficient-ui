@@ -85,6 +85,12 @@ Liberation, si está) y a las de egui (símbolos, emoji); sin `install_fonts` to
 proporcional de egui y nada se rompe. Escala ajustada a Inter: cuerpo 14 / 13 / 12.5 y títulos
 18 / 16 / 15 (Cómoda / Compacta / Densa) en seminegrita.
 
+**Emoji.** La característica `emoji` (por omisión) trae Noto Emoji monocromo de egui como último
+respaldo de todas las familias (también la monoespaciada). Con `color-emoji` (por omisión) y las
+fuentes del sistema, la de emoji a color instalada (Noto Color Emoji, Twemoji o Segoe UI Emoji;
+se lee al arrancar, nunca va en el binario) va antes que el monocromo y epaint la dibuja con
+vello_cpu (COLR, CBDT, sbix). `system::color_emoji_font()` dice cuál se encontró.
+
 **Cambiar la fuente.**
 
 ```rust
