@@ -255,6 +255,14 @@ impl CommandPalette {
                             .margin(vec2(4.0, 8.0))
                             .font(egui::FontId::proportional(16.0)),
                     );
+                    // Nombre para el lector de pantalla (la pista no lo es en AccessKit).
+                    resp.widget_info(|| {
+                        egui::WidgetInfo::labeled(
+                            egui::Role::TextInput,
+                            true,
+                            pick("Command palette", "Paleta de comandos"),
+                        )
+                    });
                     if !self.focused {
                         resp.request_focus();
                         self.focused = true;

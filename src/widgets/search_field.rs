@@ -120,6 +120,8 @@ impl<'a> SearchField<'a> {
         if cleared {
             out.mark_changed();
         }
+        // Nombre para el lector de pantalla: la pista no lo es en AccessKit.
+        out.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, hint.as_str()));
         out
     }
 }
