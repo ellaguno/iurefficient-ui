@@ -400,7 +400,12 @@ pub struct ListView<'c> {
     row_height: Option<f32>,
     header: bool,
     label: String,
+    /// Casillas de selección a la izquierda de cada fila.
+    checkboxes: bool,
 }
+
+/// Ancho de la columna de casillas.
+const CHECK_GUTTER: f32 = 30.0;
 
 impl<'c> ListView<'c> {
     pub fn new(id_salt: impl egui::AsIdSalt, columns: &'c mut [Column], rows: usize) -> Self {
@@ -411,6 +416,7 @@ impl<'c> ListView<'c> {
             row_height: None,
             header: true,
             label: crate::lang::pick("List", "Lista").to_string(),
+            checkboxes: false,
         }
     }
     /// Alto de fila propio (p. ej. dos líneas); por omisión, el de la densidad.
@@ -422,6 +428,13 @@ impl<'c> ListView<'c> {
     }
     pub fn header(mut self, show: bool) -> Self {
         self.header = show;
+        self
+    }
+    /// Casillas a la izquierda de cada fila para seleccionar varias sin teclas: se ven al pasar el
+    /// ratón, en las seleccionadas y en todas mientras hay varias seleccionadas; un clic agrega o
+    /// quita esa fila (como Ctrl+clic).
+    pub fn checkboxes(mut self, on: bool) -> Self {
+        self.checkboxes = on;
         self
     }
     /// Nombre de la lista para el lector de pantalla («Mensajes de Entrada»).
@@ -473,7 +486,8 @@ impl<'c> ListView<'c> {
 
         let total_w = ui.available_width();
         ui.spacing_mut().item_spacing.y = 0.0;
-        let widths = self.widths(total_w);
+        let gutter = if self.checkboxes { CHECK_GUTTER } else { 0.0 };
+        let widths = self.widths((total_w - gutter).max(0.0));
         let left = ui.cursor().left();
 
         // --- Encabezado ---
@@ -483,7 +497,7 @@ impl<'c> ListView<'c> {
             let p = ui.painter_at(hrect);
             p.rect_filled(hrect, 0.0, colors.surface_alt);
             p.hline(hrect.x_range(), hrect.bottom() - 0.5, Stroke::new(1.0, colors.separator));
-            let mut x = left;
+            let mut x = left + gutter;
             let n = self.columns.len();
             for (i, w) in widths.iter().enumerate() {
                 let Some(col) = self.columns.get(i) else { break };
@@ -647,7 +661,7 @@ impl<'c> ListView<'c> {
             let painter = ui.painter().clone();
             // Celdas (x relativas) una sola vez.
             let mut xs = Vec::with_capacity(widths.len());
-            let mut x = left;
+            let mut x = left + gutter;
             for (w, c) in widths.iter().zip(self.columns.iter()) {
                 xs.push((x, *w, c.align));
                 x += w;
@@ -689,6 +703,45 @@ impl<'c> ListView<'c> {
                 };
                 paint_row(&mut row);
                 let label = std::mem::take(&mut row.label);
+                // La casilla de la fila.
+                if gutter > 0.0 {
+                    let side = 15.0f32.min(row_h - 4.0).max(8.0);
+                    let cb_rect = Rect::from_center_size(pos2(left + gutter / 2.0, rect.center().y), vec2(side, side));
+                    let hit = Rect::from_min_size(pos2(left, y), vec2(gutter, row_h));
+                    let cb = ui.interact(hit, body_id.with(("check", i)), Sense::click());
+                    let name = format!(
+                        "{} {}",
+                        crate::lang::pick("Select", "Seleccionar"),
+                        if label.is_empty() { "—" } else { &label }
+                    );
+                    cb.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, selected, name.clone()));
+                    if cb.clicked() {
+                        state.selection.click(i, Modifiers::COMMAND, key_of);
+                        selection_changed = true;
+                        ui.ctx().request_repaint();
+                    }
+                    let show = selected || hovered_row == Some(i) || cb.hovered() || state.selection.len() > 1;
+                    if show {
+                        if selected {
+                            painter.rect_filled(cb_rect, 3.0, colors.accent);
+                            let (a, b, c) = (
+                                pos2(cb_rect.left() + side * 0.22, cb_rect.center().y),
+                                pos2(cb_rect.left() + side * 0.42, cb_rect.bottom() - side * 0.25),
+                                pos2(cb_rect.right() - side * 0.2, cb_rect.top() + side * 0.25),
+                            );
+                            let ink = Stroke::new(1.8, colors.on_accent);
+                            painter.line_segment([a, b], ink);
+                            painter.line_segment([b, c], ink);
+                        } else {
+                            painter.rect_stroke(
+                                cb_rect,
+                                3.0,
+                                Stroke::new(1.2, if cb.hovered() { colors.accent } else { colors.text_muted }),
+                                egui::StrokeKind::Inside,
+                            );
+                        }
+                    }
+                }
                 if focused && is_cursor {
                     painter.rect_stroke(
                         rect.shrink(0.5),
