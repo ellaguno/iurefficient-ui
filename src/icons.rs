@@ -146,6 +146,10 @@ pub enum Icon {
     Sun,
     /// Regalo: cumpleaños.
     Gift,
+    /// Visible (como en Blender): mostrar u ocultar algo de la vista.
+    Eye,
+    /// Oculto.
+    EyeOff,
 }
 
 impl Icon {
@@ -272,6 +276,8 @@ impl Icon {
         ("restore", Icon::Restore),
         ("sun", Icon::Sun),
         ("gift", Icon::Gift),
+        ("eye", Icon::Eye),
+        ("eye-off", Icon::EyeOff),
     ];
 
     /// El icono de un nombre estable; `None` si el nombre no se conoce.
@@ -1136,6 +1142,17 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, ink: Color32, accent: Color32)
                 let a = PI / 4.0 * i as f32;
                 let (c, sn) = (a.cos(), a.sin());
                 line(&[(12.0 + 7.0 * c, 12.0 + 7.0 * sn), (12.0 + 9.5 * c, 12.0 + 9.5 * sn)], s);
+            }
+        }
+        Icon::Eye | Icon::EyeOff => {
+            // Párpados: dos arcos que se juntan en (2, 12) y (22, 12); la pupila en medio.
+            let (a0, a1) = (-2.651_f32, -0.490_f32);
+            arc(12.0, 17.33, 11.33, a0, a1, s);
+            arc(12.0, 6.67, 11.33, -a1, -a0, s);
+            if icon == Icon::Eye {
+                circle(12.0, 12.0, 3.0, sa);
+            } else {
+                line(&[(4.0, 4.0), (20.0, 20.0)], s);
             }
         }
         Icon::Gift => {
