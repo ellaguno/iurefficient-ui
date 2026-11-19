@@ -104,6 +104,9 @@ pub struct Selection {
     keys: BTreeSet<u64>,
     anchor: Option<usize>,
     cursor: Option<usize>,
+    /// Se están marcando filas con las casillas (o con Ctrl/Mayús): la fila abierta por un clic
+    /// normal no cuenta como marcada.
+    checking: bool,
 }
 
 impl Selection {
@@ -127,6 +130,7 @@ impl Selection {
         self.anchor
     }
     pub fn clear(&mut self) {
+        self.checking = false;
         self.keys.clear();
         self.anchor = None;
         self.cursor = None;
@@ -134,6 +138,7 @@ impl Selection {
 
     /// Solo esta fila (clic normal).
     pub fn select_only(&mut self, row: usize, key: u64) {
+        self.checking = false;
         self.keys.clear();
         self.keys.insert(key);
         self.anchor = Some(row);
@@ -147,6 +152,31 @@ impl Selection {
         }
     }
 
+    /// ¿Se están marcando filas (casillas, Ctrl/Mayús, seleccionar todo)?
+    pub fn checking(&self) -> bool {
+        self.checking
+    }
+
+    /// Clic en la casilla de `row`: la primera empieza una selección con solo esa fila (la que se
+    /// leía no cuenta); las siguientes agregan o quitan.
+    pub fn check(&mut self, row: usize, key_of: &dyn Fn(usize) -> u64) {
+        let k = key_of(row);
+        if self.checking {
+            if !self.keys.remove(&k) {
+                self.keys.insert(k);
+            }
+            if self.keys.is_empty() {
+                self.checking = false;
+            }
+        } else {
+            self.keys.clear();
+            self.keys.insert(k);
+            self.checking = true;
+        }
+        self.anchor = Some(row);
+        self.cursor = Some(row);
+    }
+
     /// Clic con modificadores: Ctrl/⌘ alterna la fila, Mayús selecciona desde el ancla (con Ctrl
     /// además conserva lo que había), sin nada selecciona solo esa.
     pub fn click(&mut self, row: usize, mods: Modifiers, key_of: &dyn Fn(usize) -> u64) {
@@ -158,7 +188,9 @@ impl Selection {
             self.add_range(anchor, row, key_of);
             self.anchor = Some(anchor);
             self.cursor = Some(row);
+            self.checking = true;
         } else if mods.command {
+            self.checking = true;
             let k = key_of(row);
             if !self.keys.remove(&k) {
                 self.keys.insert(k);
@@ -199,6 +231,7 @@ impl Selection {
 
     /// Todas las filas (Ctrl+A).
     pub fn select_all(&mut self, rows: usize, key_of: &dyn Fn(usize) -> u64) {
+        self.checking = rows > 0;
         self.keys.clear();
         if rows > 0 {
             self.add_range(0, rows - 1, key_of);
@@ -683,11 +716,13 @@ impl<'c> ListView<'c> {
                     xs.iter()
                         .map(|&(cx, w, a)| (Rect::from_min_max(pos2(cx + pad, y), pos2(cx + w - pad, y + row_h)), a)),
                 );
+                // El contenido de la fila empieza después de la columna de casillas.
+                let content = Rect::from_min_max(pos2(rect.left() + gutter, rect.top()), rect.max);
                 let mut row = Row {
                     index: i,
                     selected,
                     cursor: is_cursor,
-                    rect,
+                    rect: content,
                     ui,
                     painter: painter.clone(),
                     cells: &cells,
@@ -705,6 +740,8 @@ impl<'c> ListView<'c> {
                 let label = std::mem::take(&mut row.label);
                 // La casilla de la fila.
                 if gutter > 0.0 {
+                    // La fila abierta con un clic normal no se ve marcada: solo las que se marcan.
+                    let selected = selected && (state.selection.checking() || state.selection.len() > 1);
                     let side = 15.0f32.min(row_h - 4.0).max(8.0);
                     let cb_rect = Rect::from_center_size(pos2(left + gutter / 2.0, rect.center().y), vec2(side, side));
                     let hit = Rect::from_min_size(pos2(left, y), vec2(gutter, row_h));
@@ -716,11 +753,15 @@ impl<'c> ListView<'c> {
                     );
                     cb.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, selected, name.clone()));
                     if cb.clicked() {
-                        state.selection.click(i, Modifiers::COMMAND, key_of);
+                        state.selection.check(i, key_of);
                         selection_changed = true;
                         ui.ctx().request_repaint();
                     }
-                    let show = selected || hovered_row == Some(i) || cb.hovered() || state.selection.len() > 1;
+                    let show = state.selection.checking()
+                        || state.selection.len() > 1
+                        || hovered_row == Some(i)
+                        || cb.hovered();
+
                     if show {
                         if selected {
                             painter.rect_filled(cb_rect, 3.0, colors.accent);
@@ -777,6 +818,25 @@ impl<'c> ListView<'c> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn checkboxes_mark_rows_apart_from_the_open_one() {
+        let key = |i: usize| i as u64 + 100;
+        let mut s = Selection::default();
+        s.select_only(0, key(0)); // la fila abierta
+        assert!(!s.checking());
+        s.check(2, &key); // la primera casilla: solo esa
+        assert_eq!(s.keys().collect::<Vec<_>>(), [102]);
+        assert!(s.checking());
+        s.check(4, &key);
+        assert_eq!(s.keys().collect::<Vec<_>>(), [102, 104], "la segunda suma");
+        s.check(2, &key);
+        s.check(4, &key);
+        assert!(s.is_empty() && !s.checking(), "sin marcadas, fuera del modo");
+        s.check(1, &key);
+        s.click(3, Modifiers::NONE, &key);
+        assert_eq!((s.keys().collect::<Vec<_>>(), s.checking()), (vec![103], false), "un clic normal abre una");
+    }
     use super::*;
 
     fn k(i: usize) -> u64 {
