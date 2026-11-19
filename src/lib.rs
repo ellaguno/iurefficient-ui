@@ -20,6 +20,7 @@ pub mod system;
 pub mod theme;
 pub mod tokens;
 pub mod widgets;
+pub mod window;
 
 pub use icons::Icon;
 pub use lang::{Lang, pick};
