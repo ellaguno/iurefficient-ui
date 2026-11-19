@@ -753,6 +753,8 @@ impl<'c> ListView<'c> {
                     );
                     cb.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, selected, name.clone()));
                     if cb.clicked() {
+                        // El teclado sigue en la lista (flechas, RePág, Supr…), no en la casilla.
+                        ui.memory_mut(|m| m.request_focus(body_id));
                         state.selection.check(i, key_of);
                         selection_changed = true;
                         ui.ctx().request_repaint();

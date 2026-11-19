@@ -150,6 +150,8 @@ struct ListApp {
     max_painted: usize,
     last_sort: Option<(usize, SortDir)>,
     activated: Option<usize>,
+    /// Con casillas.
+    checks: bool,
 }
 
 fn list_app(density: Density) -> ListApp {
@@ -167,6 +169,7 @@ fn list_app(density: Density) -> ListApp {
         max_painted: 0,
         last_sort: None,
         activated: None,
+        checks: false,
     }
 }
 
@@ -178,7 +181,7 @@ fn list_harness(density: Density, mode: ThemeMode) -> Harness<'static, ListApp> 
                 setup(ui.ctx(), mode, app.density);
             }
             let mut painted = 0;
-            let out = ListView::new("prueba", &mut app.columns, ROWS).label("Mensajes").show(
+            let out = ListView::new("prueba", &mut app.columns, ROWS).label("Mensajes").checkboxes(app.checks).show(
                 ui,
                 &mut app.state,
                 |i| i as u64 + 1_000,
@@ -251,6 +254,20 @@ fn list_of_200k_rows_only_paints_visible_rows_and_is_fast() {
     h.key_press(Key::Home);
     h.run();
     assert_eq!(selected(&h), vec![0]);
+}
+
+#[test]
+fn checkbox_click_keeps_the_keyboard_on_the_list() {
+    let mut h = list_harness(Density::Compact, ThemeMode::Light);
+    h.state_mut().checks = true;
+    h.run();
+    h.get_by_label("Seleccionar Fila 2, Asunto 2, 10:42").click();
+    h.run();
+    assert_eq!(selected(&h), vec![2]);
+    // Sin otro clic, las flechas mueven la lista (y salen de las casillas).
+    h.key_press(Key::ArrowDown);
+    h.run();
+    assert_eq!(selected(&h), vec![3]);
 }
 
 #[test]
